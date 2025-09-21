@@ -1,0 +1,156 @@
+(function(){
+  if (window.__cheat_windows_v5_installed) {
+    console.warn("createwindow v5 already installed (reinstalling).");
+  }
+  window.__cheat_windows_v5_installed = true;
+
+  const STYLE_ID = "__cheat_window_v5_styles";
+  if (!document.getElementById(STYLE_ID)) {
+    const s = document.createElement("style");
+    s.id = STYLE_ID;
+    s.textContent = `
+      .cw-window{position:fixed;background:#0f0f10;color:#e9e9e9;border:2px solid rgba(200,0,0,0.95);border-radius:8px;box-shadow:0 6px 30px rgba(0,0,0,0.7);overflow:hidden;user-select:none;z-index:2147483000;min-width:180px;min-height:120px;display:flex;flex-direction:column;}
+      .cw-titlebar{display:flex;justify-content:space-between;align-items:center;background:#151515;color:#ff6666;font-weight:bold;font-size:13px;padding:4px 6px;cursor:move;}
+      .cw-titlebar .cw-title{flex:1;text-align:center;pointer-events:none;}
+      .cw-titlebar .cw-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;width:28px;height:24px;line-height:20px;text-align:center;border-radius:4px;}
+      .cw-titlebar .cw-btn:hover{background:#2a2a2a;color:#fff;}
+      .cw-topline{height:2px;background:linear-gradient(90deg, rgba(180,0,0,0.95), rgba(120,0,0,0.6));margin-left:12px;}
+      .cw-body{flex:1;display:flex;overflow:hidden;}
+      .cw-sidebar{width:120px;min-width:90px;max-width:180px;background:#1a1a1a;border-right:1px solid #333;display:flex;flex-direction:column;overflow-y:auto;gap:6px;padding:8px 6px;}
+      .cw-tabbtn{padding:10px 8px;font-size:14px;cursor:pointer;border-radius:6px;background:transparent;color:#ddd;text-align:left;width:calc(100% - 4px);border:1px solid rgba(255,255,255,0.03);outline:2px solid transparent;}
+      .cw-tabbtn:hover{background:rgba(255,255,255,0.02);}
+      .cw-tabbtn.active{background:rgba(200,0,0,0.14);color:#fff;font-weight:700;border-color:rgba(200,0,0,0.8);outline-color:rgba(200,0,0,0.35);}
+      .cw-content{flex:1;padding:8px;overflow:auto;min-height:40px;}
+      .cw-tabpanel{display:none;}
+      .cw-tabpanel.active{display:block;}
+      .cw-resizer{position:absolute;width:14px;height:14px;right:6px;bottom:6px;cursor:nwse-resize;background:linear-gradient(135deg, rgba(255,80,80,0.95), rgba(160,20,20,0.9));border-radius:3px;}
+      .cw-minimized{position:fixed;width:32px;height:32px;border-radius:6px;background:#111;border:2px solid #900;color:#fff;font-weight:bold;font-size:18px;display:flex;justify-content:center;align-items:center;cursor:move;z-index:2147483999;}
+      
+      /* buttons now full width */
+      .cw-panel-button{display:block;width:100%;padding:10px 14px;margin:4px 0;border-radius:6px;background:#0d0d0d;color:#eee;border:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none;text-align:center;box-sizing:border-box;}
+      .cw-panel-button:hover{transform:translateY(-1px);}
+      .cw-panel-button.primary{border-color:rgba(200,0,0,0.9);box-shadow:0 4px 12px rgba(200,0,0,0.06);}
+      
+      .cw-toggle-row{display:flex;align-items:center;gap:8px;margin:8px 2px;}
+      .cw-toggle-label{flex:1;font-size:13px;color:#e6e6e6;}
+      .cw-toggle-btn{width:46px;height:24px;border-radius:12px;background:#191919;border:1px solid rgba(255,255,255,0.04);cursor:pointer;display:flex;align-items:center;padding:2px;box-sizing:border-box;}
+      .cw-toggle-knob{width:18px;height:18px;border-radius:50%;background:#0d0d0d;transition:transform 0.12s ease;border:1px solid rgba(255,255,255,0.05);}
+      .cw-toggle-on{background:linear-gradient(90deg, rgba(200,0,0,0.95), rgba(150,0,0,0.9));}
+      .cw-toggle-on .cw-toggle-knob{transform:translateX(22px);background:#fff;border-color:rgba(255,255,255,0.8);}
+
+      /* checkbox switch fill */
+      .cw-checkbox{
+        width:20px;height:20px;cursor:pointer;border-radius:4px;background:#0f0f10;border:2px solid #222;position:relative;overflow:hidden;flex-shrink:0;box-sizing:border-box;display:inline-block;transition:transform 0.12s;
+      }
+      .cw-checkbox .box-fill{
+        position:absolute;left:0;top:0;height:100%;width:100%;
+        transform:scaleX(0);transform-origin:left center;
+        transition:transform 0.18s cubic-bezier(.2,.9,.2,1);
+        background:linear-gradient(135deg,#ff6666,#b20000);
+      }
+      .cw-checkbox.checked .box-fill{ transform:scaleX(1); }
+      .cw-checkbox.checked{ transform:scale(1.06); }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function bringToFront(el) {
+    const all = [...document.querySelectorAll("body *")];
+    const maxZ = all.map(n=>parseInt(getComputedStyle(n).zIndex||0,10)).filter(n=>!Number.isNaN(n)).reduce((a,b)=>Math.max(a,b),0);
+    el.style.zIndex = (maxZ+1);
+  }
+
+  function runUserCode(fn, ev) {
+    if (!fn) return;
+    if (typeof fn === "function") try { fn(ev); } catch (err) { console.error("User function error:", err); }
+    else if (typeof fn === "string") try { (new Function(fn))(); } catch (err) { console.error("User code string error:", err); }
+    else console.warn("Unsupported handler type:", fn);
+  }
+
+  window.createwindow = function(name="Window", w=500, h=300){
+    const win = document.createElement("div");
+    win.className="cw-window";
+    win.style.width=Math.max(180, Number(w)||500)+"px";
+    win.style.height=Math.max(120, Number(h)||300)+"px";
+    win.style.left=`calc(50% - ${parseInt(win.style.width)/2}px)`;
+    win.style.top=`calc(50% - ${parseInt(win.style.height)/2}px)`;
+    win.style.position="fixed";
+
+    const titlebar=document.createElement("div");
+    titlebar.className="cw-titlebar";
+    const minBtn=document.createElement("button"); minBtn.className="cw-btn"; minBtn.textContent="–";
+    const titleEl=document.createElement("div"); titleEl.className="cw-title"; titleEl.textContent=name;
+    const closeBtn=document.createElement("button"); closeBtn.className="cw-btn"; closeBtn.textContent="×";
+    titlebar.append(minBtn, titleEl, closeBtn); win.appendChild(titlebar);
+
+    const topline=document.createElement("div"); topline.className="cw-topline"; win.appendChild(topline);
+    const body=document.createElement("div"); body.className="cw-body";
+    const sidebar=document.createElement("div"); sidebar.className="cw-sidebar";
+    const content=document.createElement("div"); content.className="cw-content";
+    body.append(sidebar, content); win.appendChild(body);
+
+    const resizer=document.createElement("div"); resizer.className="cw-resizer"; win.appendChild(resizer);
+    document.body.appendChild(win);
+
+    // dragging
+    (function(){let d=false,ox=0,oy=0;titlebar.addEventListener("mousedown",e=>{d=true;const r=win.getBoundingClientRect();ox=e.clientX-r.left;oy=e.clientY-r.top;bringToFront(win);document.body.style.userSelect="none";});window.addEventListener("mousemove",e=>{if(!d)return;win.style.left=(e.clientX-ox)+"px";win.style.top=(e.clientY-oy)+"px";});window.addEventListener("mouseup",()=>{d=false;document.body.style.userSelect="";});})();
+    // resizing
+    (function(){let r=false,sx=0,sy=0,sw=0,sh=0;resizer.addEventListener("mousedown",e=>{r=true;sx=e.clientX;sy=e.clientY;sw=win.offsetWidth;sh=win.offsetHeight;document.body.style.userSelect="none";e.preventDefault&&e.preventDefault();});window.addEventListener("mousemove",e=>{if(!r)return;win.style.width=Math.max(180,sw+(e.clientX-sx))+"px";win.style.height=Math.max(120,sh+(e.clientY-sy))+"px";});window.addEventListener("mouseup",()=>{r=false;document.body.style.userSelect="";});})();
+
+    closeBtn.addEventListener("click",()=>win.remove());
+    minBtn.addEventListener("click",()=>{
+      const rect=win.getBoundingClientRect();
+      const mini=document.createElement("div"); mini.className="cw-minimized"; mini.textContent="+"; mini.style.left=rect.left+"px"; mini.style.top=rect.top+"px";
+      document.body.appendChild(mini); win.style.display="none";
+      let d=false,ox=0,oy=0;
+      mini.addEventListener("mousedown",e=>{d=true;ox=e.clientX-mini.offsetLeft;oy=e.clientY-mini.offsetTop;bringToFront(mini);e.preventDefault&&e.preventDefault();});
+      window.addEventListener("mousemove",e=>{if(!d)return;mini.style.left=(e.clientX-ox)+"px";mini.style.top=(e.clientY-oy)+"px";});
+      window.addEventListener("mouseup",()=>{d=false;});
+      mini.addEventListener("dblclick",()=>{win.style.display="";mini.remove();});
+    });
+
+    const tabs=[]; let active=-1;
+    function activate(i){if(i<0||i>=tabs.length)return;tabs.forEach((t,j)=>{t.btn.classList.toggle("active",i===j);t.panel.classList.toggle("active",i===j);});active=i;}
+
+    function createtab(tabName="Tab"){
+      const idx=tabs.length;
+      const btn=document.createElement("button"); btn.className="cw-tabbtn"; btn.textContent=tabName; sidebar.appendChild(btn);
+      const panel=document.createElement("div"); panel.className="cw-tabpanel"; content.appendChild(panel);
+      btn.addEventListener("click",()=>activate(idx));
+      const tabObj={name:tabName,btn,panel}; tabs.push(tabObj); if(tabs.length===1)activate(0); else activate(idx);
+
+      return {
+        index:idx,name:tabName,panelEl:panel,buttonEl:btn,setActive(){activate(idx);return this;},
+        append(n){if(typeof n==="string")panel.insertAdjacentHTML("beforeend",n);else if(n instanceof Node)panel.appendChild(n);return this;},
+        createbutton(l="btn",fn=()=>{}){ const b=document.createElement("div"); b.className="cw-panel-button primary"; b.textContent=l; b.addEventListener("click", e=>runUserCode(fn,e)); panel.appendChild(b); return b; },
+        createtoggle(label="toggle",fn=()=>{}){
+          const row=document.createElement("div"); row.className="cw-toggle-row";
+          const lbl=document.createElement("div"); lbl.className="cw-toggle-label"; lbl.textContent=label;
+          const toggleBtn=document.createElement("div"); toggleBtn.className="cw-toggle-btn";
+          const knob=document.createElement("div"); knob.className="cw-toggle-knob"; toggleBtn.appendChild(knob); row.append(lbl,toggleBtn); panel.appendChild(row);
+          let enabled=false; let timerId=null;
+          function scheduleLoop(){if(!enabled)return;try{runUserCode(fn);}catch(e){console.error("Toggle loop error:",e);}timerId=setTimeout(scheduleLoop,8);}
+          toggleBtn.addEventListener("click",()=>{enabled=!enabled; toggleBtn.classList.toggle("cw-toggle-on",enabled); if(enabled){if(timerId){clearTimeout(timerId);timerId=null;}scheduleLoop();}else{if(timerId){clearTimeout(timerId);timerId=null;}}});
+          return {el:row,isOn(){return enabled;},setOn(s){if(s&&!enabled)toggleBtn.click();else if(!s&&enabled)toggleBtn.click();return this;},stop(){if(timerId){clearTimeout(timerId);timerId=null;}enabled=false;toggleBtn.classList.remove("cw-toggle-on");return this;}};
+        },
+        createswitch(label="switch",offFn=()=>{},onFn=()=>{}){
+          const row=document.createElement("div"); row.className="cw-toggle-row";
+          const lbl=document.createElement("div"); lbl.className="cw-toggle-label"; lbl.textContent=label;
+          const box=document.createElement("div"); box.className="cw-checkbox";
+          const fill=document.createElement("div"); fill.className="box-fill"; box.appendChild(fill);
+          row.append(lbl,box); panel.appendChild(row);
+
+          let state=false; let animTimer=null; const ANIM_MS=180;
+          function setState(newState){ state=Boolean(newState); box.classList.toggle("checked",state); if(animTimer){clearTimeout(animTimer); animTimer=null;} const fn=state?onFn:offFn; animTimer=setTimeout(()=>{runUserCode(fn); animTimer=null;}, ANIM_MS);}
+          box.addEventListener("click",()=>{setState(!state);});
+          return {el:row,isOn(){return state;},set(b){if(Boolean(b)!==state)setState(Boolean(b));return this;}};
+        }
+      };
+    }
+
+    bringToFront(win);
+    return {el:win,titleEl:titleEl,createtab};
+  };
+
+  console.info("createwindow v5 ready — buttons stretch, toggle every 8ms, switch fills red after animation.");
+})();
